@@ -347,6 +347,8 @@ tr.addrow td.c0{background:var(--bg);padding:0 4px}
 .chart svg{display:block;touch-action:pan-y;overflow:visible}
 .chart svg:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .chart text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.chart text.val{font-size:11.5px;fill:var(--ink);font-weight:600}
+.area-row.total-row{border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
 .chart .end-lbl{font-family:var(--f-body);font-size:12px;fill:var(--ink);font-weight:600}
 .tip{position:absolute;top:2px;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:7px 10px;font-size:12.5px;z-index:2;box-shadow:0 6px 18px rgba(0,0,0,.18);white-space:nowrap}
 .tip .th{font-weight:600;opacity:.8;margin-bottom:3px;font-size:12px}
@@ -923,8 +925,8 @@ function lineChart(id,c){
     if(!pts.length)return;
     let d='',prev=null;
     pts.forEach(p=>{const gap=prev&&se.breakGaps&&diff(prev.x,p.x)>se.breakGaps;d+=(d&&!gap?'L':'M')+sx(p.x).toFixed(1)+' '+sy(p.y).toFixed(1);prev=p;});
-    s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${se.dash?` stroke-dasharray="${se.dash}"`:''}/>`;
-    if(se.markers!==false&&pts.length<=45)pts.forEach(p=>{s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`;});
+    if(se.line!==false)s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${se.dash?` stroke-dasharray="${se.dash}"`:''}/>`;
+    if(se.markers!==false&&(pts.length<=45||se.line===false))pts.forEach(p=>{s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${se.line===false?3.5:4}" fill="${se.color}" stroke="var(--surface)" stroke-width="${se.line===false?1.5:2}"/>`;});
     const L=pts[pts.length-1];ends.push({y:sy(L.y),x:sx(L.x),name:se.name,color:se.color,dash:se.dash});
   });
   if(c.endLabels){ends.sort((a,b)=>a.y-b.y);for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<15)ends[i].y=ends[i-1].y+15;
@@ -950,7 +952,7 @@ function barChart(id,c){
   CH[id]={xs,sx:x=>pl+idx[x]*bw+bw/2,W,title:x=>c.bars[idx[x]].label,rows:x=>[{name:c.seriesName,color:'var(--accent)',val:String(c.bars[idx[x]].v)}]};
   return `<div class="chart" id="${id}">${s}<div class="tip" hidden></div></div>`;
 }
-function legend(items){return `<div class="legend-row">${items.map(i=>`<span class="lk"><svg viewBox="0 0 20 8" aria-hidden="true"><line x1="1" x2="19" y1="4" y2="4" stroke="${i.color}" stroke-width="2.5" stroke-linecap="round"${i.dash?` stroke-dasharray="${i.dash}"`:''}/></svg>${esc(i.name)}</span>`).join('')}</div>`;}
+function legend(items){return `<div class="legend-row">${items.map(i=>`<span class="lk"><svg viewBox="0 0 20 8" aria-hidden="true">${i.rect?`<rect x="4" y="0" width="12" height="8" rx="2" fill="${i.color}"/>`:i.line===false?`<circle cx="10" cy="4" r="3.5" fill="${i.color}"/>`:`<line x1="1" x2="19" y1="4" y2="4" stroke="${i.color}" stroke-width="2.5" stroke-linecap="round"${i.dash?` stroke-dasharray="${i.dash}"`:''}/>`}</svg>${esc(i.name)}</span>`).join('')}</div>`;}
 function tableView(cols,rows){return `<details class="tbl"><summary>Show as table</summary><div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((v,i)=>`<td class="${i?'mono':''}">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;}
 function seg(k,opts,cur){return `<div class="seg-ctl sm" role="group">${opts.map(([v,l])=>`<button data-a="sv" data-k="${k}" data-v="${v}" aria-pressed="${cur===v}">${esc(l)}</button>`).join('')}</div>`;}
 function emptyChart(msg){return `<div class="empty" style="padding:22px 16px"><p style="margin:0">${msg}</p></div>`;}
@@ -1006,19 +1008,94 @@ function trendPerformance(){
    ${tableView(['Column','Date','Logged',METRICS.find(a=>a[0]===m)[1]],inR.slice().reverse().map(p=>[p.col.short,fmt(p.x),fmtCell(p.cell),fy(p.y)]))}`;
   return {ctrl,body};
 }
-function moodData(x0,x1){const out={};PARTS.forEach(p=>out[p]={});S.diary.forEach(e=>{if(!e.mood||!e.part||e.date<x0||e.date>x1)return;const o=out[e.part][e.date]||(out[e.part][e.date]={sum:0,n:0});o.sum+=e.mood;o.n++;});return out;}
+const MOOD_SERIES=PARTS.map(p=>({key:p,name:PART_LABEL[p],color:PART_COLOR[p],dash:PART_DASH[p]})).concat([{key:'total',name:'Total',color:'var(--ink)',dash:''}]);
+const MOOD_VIEWS=[['avg','Average by time of day'],['trend','Mood over time, by time of day'],['total','Total with morning, day and evening'],['dist','How often each mood comes up'],['weekday','By day of the week']];
+const WEEKDAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function moodData(x0,x1){const out={total:{}};PARTS.forEach(p=>out[p]={});
+  const add=(k,d,m)=>{const o=out[k][d]||(out[k][d]={sum:0,n:0});o.sum+=m;o.n++;};
+  S.diary.forEach(e=>{if(!e.mood||e.date<x0||e.date>x1)return;add('total',e.date,e.mood);if(e.part&&out[e.part])add(e.part,e.date,e.mood);});return out;}
+function moodAvg(md,k){const v=Object.values(md[k]),n=v.reduce((a,o)=>a+o.n,0);return {n,avg:n?v.reduce((a,o)=>a+o.sum,0)/n:null};}
+const moodTxt=y=>(Math.round(y*10)/10).toLocaleString()+' · '+MOODS[Math.max(0,Math.min(4,Math.round(y)-1))];
+const moodTicks=MOODS.map((l,i)=>({v:i+1,l}));
+function moodBounds(){const all=S.diary.filter(e=>e.mood);return {all,b:bounds(all.reduce((a,e)=>e.date<a?e.date:a,today()))};}
 function trendMood(){
-  const all=S.diary.filter(e=>e.mood);
+  const {all,b:[x0,x1]}=moodBounds();
   if(!all.length)return {ctrl:'',body:emptyChart('Add diary entries with a mood and a time of day to see your mood over time.')};
-  const [x0,x1]=bounds(all.reduce((a,e)=>e.date<a?e.date:a,today()));
-  const md=moodData(x0,x1);
-  const series=PARTS.map(p=>({name:PART_LABEL[p],color:PART_COLOR[p],dash:PART_DASH[p],breakGaps:Math.max(3,Math.round(diff(x0,x1)/20)),points:Object.entries(md[p]).map(([x,o])=>({x,y:o.sum/o.n}))}));
+  const md=moodData(x0,x1),gap=Math.max(3,Math.round(diff(x0,x1)/20));
+  const series=MOOD_SERIES.map(s=>({name:s.name,color:s.color,dash:s.dash,breakGaps:gap,points:Object.entries(md[s.key]).map(([x,o])=>({x,y:o.sum/o.n}))}));
   const untimed=all.filter(e=>!e.part&&e.date>=x0&&e.date<=x1).length;
-  const ds=[...new Set(series.flatMap(s=>s.points.map(p=>p.x)))].sort().reverse();
-  const body=`${legend(series)}${lineChart('ch-mood',{label:'Mood by time of day',x0,x1,yMin:1,yMax:5,padL:50,endLabels:true,yTicks:MOODS.map((l,i)=>({v:i+1,l})),series,fmtY:y=>(Math.round(y*10)/10)+' · '+MOODS[Math.round(y)-1]})}
-    ${untimed?`<p class="hint">${untimed} entr${untimed>1?'ies':'y'} in this period ${untimed>1?'have':'has'} no time of day, so ${untimed>1?'they aren\'t':'it isn\'t'} shown. Edit ${untimed>1?'them':'it'} in the diary to add one.</p>`:''}
-    ${tableView(['Date'].concat(series.map(s=>s.name)),ds.map(d=>[fmt(d,{day:'numeric',month:'short',year:'numeric'})].concat(PARTS.map(p=>md[p][d]?MOODS[Math.round(md[p][d].sum/md[p][d].n)-1]:'–'))))}`;
+  const ds=Object.keys(md.total).sort().reverse();
+  const body=`${legend(series)}${lineChart('ch-mood',{label:'Mood by time of day',x0,x1,yMin:1,yMax:5,padL:50,endLabels:true,yTicks:moodTicks,series,fmtY:moodTxt})}
+    ${untimed?`<p class="hint">${untimed} entr${untimed>1?'ies':'y'} in this period ${untimed>1?'have':'has'} no time of day, so ${untimed>1?'they count':'it counts'} only in Total. Tap Edit on ${untimed>1?'them':'it'} in the diary and choose Morning, Day or Evening.</p>`:''}
+    ${tableView(['Date'].concat(series.map(s=>s.name)),ds.map(d=>[fmt(d,{day:'numeric',month:'short',year:'numeric'})].concat(MOOD_SERIES.map(s=>md[s.key][d]?moodTxt(md[s.key][d].sum/md[s.key][d].n):'–'))))}`;
   return {ctrl:'',body};
+}
+function groupedBars(id,c){
+  const W=chartW(),H=c.height||220,pl=c.padL||36,pr=8,pt=20,pb=26,iw=W-pl-pr,ih=H-pt-pb;
+  const nC=c.cats.length,nS=c.series.length,gw=iw/nC,inner=Math.min(gw*0.8,nS*44),bw=Math.max(3,(inner-(nS-1)*2)/nS);
+  const sy=v=>pt+(1-(v-c.yMin)/(c.yMax-c.yMin))*ih,base=sy(c.yMin);
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" tabindex="0" role="img" aria-label="${esc(c.label)}"><rect class="xh" x="0" y="${pt-4}" width="0" height="${ih+4}" rx="6" fill="var(--sunk)" style="display:none"/>`;
+  c.yTicks.forEach(t=>{const y=sy(t.v).toFixed(1);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)"${t.v===c.yMin?'':' stroke-dasharray="2 4"'}/><text x="${pl-7}" y="${y}" dy="3.5" text-anchor="end">${esc(t.l)}</text>`;});
+  c.cats.forEach((cat,i)=>{
+    const gx=pl+i*gw+(gw-inner)/2;
+    c.series.forEach((se,j)=>{const v=se.values[i];if(v==null)return;const x=gx+j*(bw+2),y=sy(v),h=base-y,r=Math.min(4,bw/2,h);const col=se.colors?se.colors[i]:se.color;
+      if(h>0.5)s+=`<path d="M${x.toFixed(1)} ${base.toFixed(1)} V${(y+r).toFixed(1)} Q${x.toFixed(1)} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+bw-r).toFixed(1)} Q${(x+bw).toFixed(1)} ${y.toFixed(1)} ${(x+bw).toFixed(1)} ${(y+r).toFixed(1)} V${base.toFixed(1)} Z" fill="${col}"/>`;
+      if(c.valueLabels)s+=`<text class="val" x="${(x+bw/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle">${esc(c.short(v))}</text>`;});
+    s+=`<text x="${(pl+i*gw+gw/2).toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(cat)}</text>`;
+  });
+  s+='</svg>';
+  CH[id]={xs:c.cats.map((_,i)=>String(i)),sx:i=>pl+(+i)*gw+gw/2,band:Math.min(gw-4,inner+12),W,title:i=>c.tipTitle?c.tipTitle(+i):c.cats[+i],
+    rows:i=>c.series.map(se=>({name:se.colors?c.cats[+i]:se.name,color:se.colors?se.colors[+i]:se.color,val:se.values[+i]==null?'–':c.fmt(se.values[+i],+i,se)}))};
+  return `<div class="chart" id="${id}">${s}<div class="tip" hidden></div></div>`;
+}
+function moodSection(v){
+  const {all,b:[x0,x1]}=moodBounds();
+  const md=moodData(x0,x1),st=MOOD_SERIES.map(s=>Object.assign({},s,moodAvg(md,s.key)));
+  const rangeName=RANGES.find(r=>r[0]===v.range)[1];
+  let h=`<section class="block"><h3>Mood by time of day</h3><p class="hint" style="margin:-4px 0 8px">Average mood for the selected range (${esc(rangeName)}). Change the range under Trends.</p>
+   ${st.map(s=>`<div class="area-row ${s.key==='total'?'total-row':''}"><div class="nm"><span class="lk"><svg viewBox="0 0 20 8" aria-hidden="true"><line x1="1" x2="19" y1="4" y2="4" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round"${s.dash?` stroke-dasharray="${s.dash}"`:''}/></svg>${s.name}</span><small>${s.n} entr${s.n===1?'y':'ies'}</small></div><div class="hbar"><i style="width:${s.n?((s.avg-1)/4*100).toFixed(1):0}%;background:${s.color}"></i></div><div class="mono" style="text-align:right">${s.n?s.avg.toFixed(1):'–'}</div></div>`).join('')}
+   <p class="hint">1 is Low, 5 is Great. Total counts every entry with a mood, including entries without a time of day.</p>`;
+  const view=MOOD_VIEWS.some(m=>m[0]===v.moodView)?v.moodView:'avg';
+  const ctrl=`<label class="field" style="flex-direction:row;align-items:center;gap:8px"><span style="white-space:nowrap">Graph view</span><select class="input" data-sv="moodView" aria-label="Graph view">${MOOD_VIEWS.map(([k,l])=>`<option value="${k}" ${k===view?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;
+  let body='';
+  const inRange=all.filter(e=>e.date>=x0&&e.date<=x1);
+  if(!inRange.length)body=emptyChart('No diary entries with a mood in this range. Try a longer range under Trends.');
+  else if(view==='avg'){
+    const best=st.filter(s=>s.key!=='total'&&s.n).sort((a,b)=>b.avg-a.avg)[0];
+    body=`<p class="trend-sum">${best?`Your best time of day is <strong>${best.name.toLowerCase()}</strong> at <strong>${best.avg.toFixed(1)}</strong>. `:''}Total <strong>${st[3].n?st[3].avg.toFixed(1):'–'}</strong> from ${st[3].n} entr${st[3].n===1?'y':'ies'}.</p>
+     ${groupedBars('ch-mv',{label:'Average mood by time of day',cats:st.map(s=>s.name),yMin:1,yMax:5,padL:50,yTicks:moodTicks,valueLabels:true,short:v=>v.toFixed(1),
+       series:[{name:'Average mood',colors:st.map(s=>s.color),values:st.map(s=>s.n?s.avg:null)}],fmt:(y,i)=>moodTxt(y)+'  ·  '+st[i].n+' entr'+(st[i].n===1?'y':'ies')})}
+     ${tableView(['Time of day','Average','Entries'],st.map(s=>[s.name,s.n?moodTxt(s.avg):'–',String(s.n)]))}`;
+  }else if(view==='trend'){
+    body=trendMood().body.replace('ch-mood','ch-mv');CH['ch-mv']=CH['ch-mood'];
+  }else if(view==='total'){
+    const gap=Math.max(3,Math.round(diff(x0,x1)/20));
+    const pts=k=>Object.entries(md[k]).map(([x,o])=>({x,y:o.sum/o.n}));
+    const series=PARTS.map(pp=>({name:PART_LABEL[pp],color:PART_COLOR[pp],dash:PART_DASH[pp],line:false,points:pts(pp)}))
+      .concat([{name:'Total',color:'var(--ink)',breakGaps:gap,points:pts('total')}]);
+    const tot=series[3].points.slice().sort((p,q)=>p.x<q.x?-1:1),a=tot[0],z=tot[tot.length-1];
+    body=`<p class="trend-sum">The line is your total for each day. The dots are the morning, day and evening moods it's made from.${a&&z&&a!==z?` Total went from <strong>${a.y.toFixed(1)}</strong> to <strong>${z.y.toFixed(1)}</strong>.`:''}</p>${legend(series)}
+     ${lineChart('ch-mv',{label:'Total mood with morning, day and evening',x0,x1,yMin:1,yMax:5,padL:50,yTicks:moodTicks,series,fmtY:moodTxt})}
+     ${tableView(['Date'].concat(series.map(x=>x.name)),Object.keys(md.total).sort().reverse().map(d=>[fmt(d,{day:'numeric',month:'short',year:'numeric'})].concat(MOOD_SERIES.map(x=>md[x.key][d]?moodTxt(md[x.key][d].sum/md[x.key][d].n):'–'))))}`;
+  }else if(view==='dist'){
+    const cnt=k=>MOODS.map((_,i)=>inRange.filter(e=>e.mood===i+1&&(k==='total'||e.part===k)).length);
+    const series=MOOD_SERIES.map(s=>({name:s.name,color:s.color,values:cnt(s.key)}));
+    const max=niceMax(Math.max(1,...series.flatMap(s=>s.values))),step=Math.max(1,Math.ceil(max/4));
+    const top=series[3].values.indexOf(Math.max(...series[3].values));
+    body=`<p class="trend-sum">Your most common mood is <strong>${MOODS[top]}</strong> (${series[3].values[top]} of ${inRange.length} entries).</p>${legend(series.map(s=>Object.assign({rect:true},s)))}
+     ${groupedBars('ch-mv',{label:'How often each mood comes up',cats:MOODS,yMin:0,yMax:Math.ceil(max/step)*step,yTicks:Array.from({length:Math.ceil(max/step)+1},(_,i)=>({v:i*step,l:String(i*step)})),series,fmt:y=>y+' entr'+(y===1?'y':'ies')})}
+     ${tableView(['Mood'].concat(series.map(s=>s.name)),MOODS.map((m,i)=>[m].concat(series.map(s=>String(s.values[i])))))}`;
+  }else{
+    const wd=d=>(parse(d).getDay()+6)%7;
+    const series=MOOD_SERIES.map(s=>({name:s.name,color:s.color,values:WEEKDAYS.map((_,i)=>{const es=inRange.filter(e=>wd(e.date)===i&&(s.key==='total'||e.part===s.key));return es.length?es.reduce((a,e)=>a+e.mood,0)/es.length:null;})}));
+    const tv=series[3].values,known=tv.map((y,i)=>({y,i})).filter(o=>o.y!=null).sort((a,b)=>b.y-a.y);
+    body=`<p class="trend-sum">${known.length>1?`Best day <strong>${WEEKDAYS[known[0].i]}</strong> (${known[0].y.toFixed(1)}), hardest day <strong>${WEEKDAYS[known[known.length-1].i]}</strong> (${known[known.length-1].y.toFixed(1)}).`:'Add entries on more days of the week to compare them.'}</p>${legend(series.map(s=>Object.assign({rect:true},s)))}
+     ${groupedBars('ch-mv',{label:'Mood by day of the week',cats:WEEKDAYS,yMin:1,yMax:5,padL:50,yTicks:moodTicks,series,fmt:moodTxt})}
+     ${tableView(['Day'].concat(series.map(s=>s.name)),WEEKDAYS.map((d,i)=>[d].concat(series.map(s=>s.values[i]==null?'–':moodTxt(s.values[i])))))}`;
+  }
+  const untimed=inRange.filter(e=>!e.part).length;
+  const note=untimed&&view!=='trend'?`<p class="hint">${untimed} of ${inRange.length} entries in this range have no time of day, so they count only in Total. Open the diary, tap Edit on an entry and choose Morning, Day or Evening.</p>`:'';
+  return h+`<div class="trend" style="margin-top:12px"><div class="ctrls">${ctrl}</div>${body}${note}</div></section>`;
 }
 function trendActivity(){
   const {all}=statArea();
@@ -1049,8 +1126,6 @@ function viewStats(){
   const t=today(),wk=addDays(t,-6);
   let week=0;all.forEach(g=>{if(g.kind==='routine')Object.entries(g.checks).forEach(([k,val])=>{const d=g.freq==='daily'?k:(typeof val==='string'?val:k);if(d>=wk&&d<=t)week++;});else g.milestones.forEach(m=>{if(m.done&&m.doneAt>=wk&&m.doneAt<=t)week++;});});
   const tr=v.chart==='performance'?trendPerformance():v.chart==='mood'?trendMood():v.chart==='activity'?trendActivity():trendProgress();
-  const [m0,m1]=bounds(S.diary.reduce((a,e)=>e.date<a?e.date:a,t));
-  const md=moodData(m0,m1);
   const ent=S.diary,monthKey=t.slice(0,7);
   let h=`<div class="head"><div><h2>Statistics</h2><p>Across ${gTabs.length} area${gTabs.length===1?'':'s'} and ${all.length} goal${all.length===1?'':'s'}</p></div></div>
   <div class="tiles">
@@ -1063,10 +1138,7 @@ function viewStats(){
    <div class="ctrls">${seg('chart',CHART_KINDS,v.chart)}${seg('range',RANGES,v.range)}</div>
    <div class="trend">${tr.ctrl?`<div class="ctrls">${tr.ctrl}</div>`:''}${tr.body}</div>
   </section>
-  <section class="block"><h3>Mood by time of day</h3><p class="hint" style="margin:-4px 0 8px">Average mood for the selected range (${esc(RANGES.find(r=>r[0]===v.range)[1])}).</p>
-   ${PARTS.map(p=>{const vals=Object.values(md[p]),n=vals.reduce((a,o)=>a+o.n,0),avg=n?vals.reduce((a,o)=>a+o.sum,0)/n:0;
-     return `<div class="area-row"><div class="nm"><span class="lk"><svg viewBox="0 0 20 8" aria-hidden="true"><line x1="1" x2="19" y1="4" y2="4" stroke="${PART_COLOR[p]}" stroke-width="2.5" stroke-linecap="round"${PART_DASH[p]?` stroke-dasharray="${PART_DASH[p]}"`:''}/></svg>${PART_LABEL[p]}</span><small>${n} entr${n===1?'y':'ies'}</small></div><div class="hbar"><i style="width:${n?((avg-1)/4*100).toFixed(1):0}%;background:${PART_COLOR[p]}"></i></div><div class="mono" style="text-align:right">${n?avg.toFixed(1):'–'}</div></div>`;}).join('')}
-   <p class="hint">1 is Low, 5 is Great.</p></section>
+  ${moodSection(v)}
   <section class="block"><h3>Progress by area</h3>${gTabs.map(tb=>{
     const gs=sts.filter(x=>areaOf(x.g.tabId)===tb.id);const avg=gs.length?gs.reduce((a,x)=>a+x.p,0)/gs.length:0;
     return `<div class="area-row"><div class="nm" title="${esc(tb.name)}">${esc(tb.name)}<small>${gs.length} goal${gs.length===1?'':'s'}</small></div><div class="hbar"><i style="width:${(avg*100).toFixed(1)}%"></i></div><div class="mono" style="text-align:right">${gs.length?pctTxt(avg)+'%':'–'}</div></div>`;}).join('')||'<p class="hint">Add an area with goals in Settings.</p>'}</section>`;
@@ -1083,7 +1155,7 @@ function viewStats(){
 /* chart hover and keyboard readout */
 function showTip(box,i){
   const c=CH[box.id];if(!c||!c.xs.length)return;i=Math.max(0,Math.min(c.xs.length-1,i));c.cur=i;
-  const x=c.xs[i],X=c.sx(x),ln=box.querySelector('.xh');ln.setAttribute('x1',X);ln.setAttribute('x2',X);ln.style.display='';
+  const x=c.xs[i],X=c.sx(x),ln=box.querySelector('.xh');if(c.band){ln.setAttribute('x',X-c.band/2);ln.setAttribute('width',c.band);}else{ln.setAttribute('x1',X);ln.setAttribute('x2',X);}ln.style.display='';
   const tip=box.querySelector('.tip');tip.replaceChildren();
   const th=document.createElement('div');th.className='th';th.textContent=c.title(x);tip.appendChild(th);
   c.rows(x).forEach(r=>{const row=document.createElement('div');row.className='tr';const k=document.createElement('span');k.className='k';k.style.borderTop=`2.5px ${r.dash?'dashed':'solid'} ${r.color}`;
