@@ -367,7 +367,31 @@ tr.addrow td.c0{background:var(--bg);padding:0 4px}
 .subs-panel .subs-edit{margin:0;border-left:0;padding-left:0}
 .subs-panel .hint{margin:0}
 
+/* sleep */
+.sleep-form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;margin-bottom:22px}
+.sleep-top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px 16px;flex-wrap:wrap}
+.sleep-top h3{font-size:19px}
+.sleep-top .field{width:170px}
+.input.time{font-family:var(--f-mono);font-size:18px;font-weight:600;padding:9px 10px}
+.grade-box{display:flex;gap:14px;align-items:flex-start;background:var(--bg);border-radius:10px;padding:12px}
+.grade-detail{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.grade-score strong{font-size:20px}
+.gpart{display:grid;grid-template-columns:118px 1fr 30px;gap:2px 10px;align-items:center;font-size:13px}
+.gpart small{grid-column:1/-1;color:var(--muted);font-size:12px;margin-top:-2px}
+.gpart .mono{text-align:right}
+.grade-badge{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:20px;flex:none}
+.grade-badge.big{width:64px;height:64px;font-size:34px;border-radius:16px}
+.g-good{background:var(--accent-soft);color:var(--good)}
+.g-mid{background:var(--routine-soft);color:var(--warn)}
+.g-low{background:var(--bad-soft);color:var(--bad)}
+.night{display:grid;grid-template-columns:62px 1fr auto;gap:14px;padding:12px 0;border-bottom:1px dashed var(--line);align-items:start}
+.night-main{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.check-row{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer}
+.check-row input{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);flex:none}
+
 @media (max-width:620px){
+  .gpart{grid-template-columns:96px 1fr 28px}
+  .grade-badge.big{width:54px;height:54px;font-size:28px}
   .sf-title h2{font-size:18px}
   .sf .ss .c0{min-width:118px;max-width:130px}
   .ss .c0{min-width:110px;max-width:130px}
@@ -422,10 +446,10 @@ const ICON={
 const MOODS=['Low','Flat','Okay','Good','Great'];
 const PARTS=['morning','day','evening'],PART_LABEL={morning:'Morning',day:'Day',evening:'Evening'},PART_ORDER={morning:0,day:1,evening:2};
 function defaultPart(){const h=new Date().getHours();return h<12?'morning':h<18?'day':'evening';}
-const KIND_LABEL={goals:'Goals',diary:'Diary',stats:'Statistics'};
-const MAIN_NAME={goals:'Goals',diary:'Entries',stats:'Overview'};
-const SUB_LABEL={goals:'Goals',sheet:'Workout sheet',diary:'Diary',notes:'Notes',stats:'Statistics'};
-const SUB_KINDS=['sheet','goals','notes','diary','stats'];
+const KIND_LABEL={goals:'Goals',diary:'Diary',stats:'Statistics',sleep:'Sleep'};
+const MAIN_NAME={goals:'Goals',diary:'Entries',stats:'Overview',sleep:'Nights'};
+const SUB_LABEL={goals:'Goals',sheet:'Workout sheet',diary:'Diary',notes:'Notes',stats:'Statistics',sleep:'Sleep'};
+const SUB_KINDS=['sheet','goals','notes','diary','sleep','stats'];
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -456,8 +480,8 @@ function exampleSheet(ms){
 }
 function seed(){
   const t=today();
-  const tabs=['Fitness','Health','Faith','Energy','Knowledge'].map(n=>({id:uid(),name:n,type:'goals'}))
-    .concat([{id:uid(),name:'Diary',type:'diary'},{id:uid(),name:'Statistics',type:'stats'}]);
+  const tabs=[['Fitness','goals'],['Health','goals'],['Sleep','sleep'],['Faith','goals'],['Energy','goals'],['Knowledge','goals'],['Diary','diary'],['Statistics','stats']].map(([name,type])=>({id:uid(),name,type}));
+  const T=n=>tabs.find(x=>x.name===n);
   tabs.forEach(tb=>{tb.subs=[{id:uid(),kind:'main',name:MAIN_NAME[tb.type]}];});
   tabs[0].subs.push({id:uid(),kind:'sheet',name:'Workout sheet'});
   const push={id:uid(),tabId:tabs[0].id,kind:'routine',title:'Push-ups every day',freq:'daily',start:addDays(t,-4),end:addDays(t,9),checks:{},notes:'',example:true,created:Date.now(),
@@ -474,17 +498,20 @@ function seed(){
         {id:uid(),name:'Run 10K',start:addDays(t,31),end:addDays(t,50),done:false}]};
   run.sheet=exampleSheet(run.milestones);
   return {
-    v:3,tabs,active:tabs[0].id,activeSub:{},settings:{theme:'system'},updatedAt:new Date().toISOString(),
+    v:4,tabs,active:tabs[0].id,activeSub:{},settings:{theme:'system',sleepTarget:8},updatedAt:new Date().toISOString(),
     goals:[run,push,water],
+    sleep:[[-6,'23:15','07:00',4,''],[-5,'23:40','06:45',3,''],[-4,'00:50','06:40',2,'Example. Late screen time, woke up twice.'],[-3,'23:05','07:10',4,''],[-2,'22:50','06:55',5,'Example. No phone after 22.'],[-1,'23:30','06:20',3,'']]
+      .map(([n,bed,wake,rested,comment])=>({id:uid(),tabId:T('Sleep').id,date:addDays(t,n),bed,wake,rested,comment,example:true})),
     diary:[[-1,'evening',4,'Example entry. Slept well, got the long walk in, skipped the evening phone scroll.'],[-1,'morning',3,'Example entry. Slow start, coffee and stretching helped.'],
       [-2,'day',2,'Example entry. Long meetings, skipped lunch.'],[-2,'evening',3,'Example entry. Better after dinner and a short run.'],[-3,'morning',4,'Example entry. Up early, felt rested.'],[-4,'day',4,'Example entry. Good focus at work.']]
-      .map(([n,part,mood,text])=>({id:uid(),tabId:tabs[5].id,date:addDays(t,n),part,mood,text,example:true}))
+      .map(([n,part,mood,text])=>({id:uid(),tabId:T('Diary').id,date:addDays(t,n),part,mood,text,example:true}))
   };
 }
 function normalize(d){
   d.settings=d.settings||{theme:'system'};
   d.goals=(d.goals||[]).map(g=>Object.assign({checks:{},milestones:[],notes:'',freq:'daily'},g));
   d.diary=d.diary||[];
+  d.sleep=d.sleep||[];
   d.activeSub=d.activeSub||{};
   if(!d.tabs.length) d.tabs=seed().tabs;
   const first=!d.v||d.v<2;
@@ -505,6 +532,11 @@ function normalize(d){
       const used=d.goals.some(x=>ids.has(x.tabId))||d.diary.some(x=>ids.has(x.tabId))||g.subs.some(s=>s.text);
       if(!used){d.tabs=d.tabs.filter(t=>t.id!==g.id);if(d.active===g.id)d.active=d.tabs[0].id;if(d.activeSub)delete d.activeSub[g.id];}}
     d.v=3;
+  }
+  if(d.v<4){
+    if(!d.tabs.some(t=>t.type==='sleep')){const i=d.tabs.findIndex(t=>/^health$/i.test((t.name||'').trim()));
+      d.tabs.splice(i>-1?i+1:Math.min(2,d.tabs.length),0,{id:uid(),name:'Sleep',type:'sleep',subs:[{id:uid(),kind:'main',name:'Nights'}]});}
+    d.v=4;
   }
   if(d.active!=='settings'&&!d.tabs.some(t=>t.id===d.active)) d.active=d.tabs[0].id;
   return d;
@@ -643,7 +675,7 @@ function render(){
 }
 
 function tabCount(t){
-  return goalsInArea(t.id).length+S.diary.filter(e=>areaOf(e.tabId)===t.id).length;
+  return goalsInArea(t.id).length+S.diary.filter(e=>areaOf(e.tabId)===t.id).length+S.sleep.filter(e=>areaOf(e.tabId)===t.id).length;
 }
 function renderTabs(){
   let h=S.tabs.map(t=>{const c=tabCount(t);return `<button class="tab" data-a="tab" data-id="${t.id}" aria-current="${S.active===t.id}">${esc(t.name)}${c!==''&&c>0?`<span class="count">${c}</span>`:''}</button>`;}).join('');
@@ -658,7 +690,7 @@ function renderView(){
   if(!t){v.innerHTML='';return;}
   const s=activeSub(t),k=subKind(t,s);
   const ctx={id:s.kind==='main'?t.id:s.id,name:s.kind==='main'?t.name:s.name,eyebrow:s.kind==='main'?'':t.name,top:t,sub:s};
-  v.innerHTML=subStrip(t,s)+(k==='diary'?viewDiary(ctx):k==='stats'?viewStats():k==='sheet'?viewSheet(ctx):k==='notes'?viewNotes(ctx):viewGoals(ctx));
+  v.innerHTML=subStrip(t,s)+(k==='sleep'?viewSleep(ctx):k==='diary'?viewDiary(ctx):k==='stats'?viewStats():k==='sheet'?viewSheet(ctx):k==='notes'?viewNotes(ctx):viewGoals(ctx));
   if(addingSub===t.id){const i=$('#subNewName');if(i)i.focus();}
 }
 function subStrip(t,cur){
@@ -820,6 +852,7 @@ function renderForm(){
        <div style="display:flex;flex-direction:column;gap:8px">${msRows}</div>
        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn small" data-a="ms-add">${ICON.plus}Add milestone</button>
        <button type="button" class="btn small ghost" data-a="ms-split">Split dates evenly</button></div>
+       <label class="check-row"><input type="checkbox" id="f-auto" data-dfcheck="autoAdjust" ${d.autoAdjust!==false?'checked':''}><span>Adjust remaining milestones automatically. When you finish one early or late, the rest are spread evenly over the time left until the end date.</span></label>
        <p class="hint">Duplicate copies a milestone and places it straight after, with the same length. “Week 1” becomes “Week 2”. Milestones left without dates get an even share of the goal's dates when you save.</p></div>`}
     <label class="field"><span>Notes <span class="muted" style="font-weight:400">(optional)</span></span><textarea class="input" id="f-notes" data-df="notes" rows="2" style="min-height:60px" placeholder="Why this matters, or how you'll do it">${esc(d.notes)}</textarea></label>
     ${formErr?`<p class="err" role="alert">${esc(formErr)}</p>`:''}
@@ -839,6 +872,22 @@ function splitEven(d,onlyEmpty){
     m.start=addDays(d.start,s);m.end=addDays(d.start,e);
   });
   return true;
+}
+/* When a milestone is finished early or late, spread the remaining ones evenly
+   from the day of the latest completion to the goal's end date. */
+function rebalance(g){
+  if(g.kind!=='milestones'||g.autoAdjust===false)return null;
+  const rem=g.milestones.filter(m=>!m.done);if(!rem.length)return null;
+  const dones=g.milestones.filter(m=>m.done).map(m=>m.doneAt||m.end||g.start).filter(validDate).sort();
+  let from=dones.length?dones[dones.length-1]:g.start;if(from<g.start)from=g.start;
+  const to=g.end>=from?g.end:from,total=diff(from,to)+1,n=rem.length;
+  rem.forEach((m,i)=>{const a=Math.floor(i*total/n),b=Math.max(a,Math.floor((i+1)*total/n)-1);m.start=addDays(from,a);m.end=addDays(from,b);});
+  return {n,from,to};
+}
+function msToast(g,m,r){
+  if(!m.done){toast(r?`Milestone reopened. ${r.n} milestones now share ${fmt(r.from)} – ${fmt(r.to)}`:'Milestone reopened');return;}
+  if(progress(g)>=1){toast(`“${g.title}” complete`);return;}
+  toast(r?`Done · ${pctTxt(progress(g))}%. The other ${r.n} now share ${fmt(r.from)} – ${fmt(r.to)}`:`Milestone done · ${pctTxt(progress(g))}%`);
 }
 function submitGoal(){
   const d=draft;d.title=(d.title||'').trim();
@@ -891,9 +940,114 @@ function viewDiary(t){
   return h;
 }
 
+/* ---------- sleep ---------- */
+const RESTED=['Terrible','Poor','Okay','Good','Great'];
+const TARGETS=[6.5,7,7.5,8,8.5,9];
+function sleepTarget(){const t=+S.settings.sleepTarget;return t>0?t:8;}
+function tMin(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?(+m[1])*60+(+m[2]):null;}
+function sleepHours(e){const b=tMin(e.bed),w=tMin(e.wake);if(b==null||w==null)return null;let d=w-b;if(d<=0)d+=1440;return d/60;}
+function bedRel(e){const b=tMin(e.bed);return b==null?null:(b<720?b+1440:b);}
+function hm(h){const m=Math.round(h*60);return Math.floor(m/60)+' h '+pad(m%60)+' min';}
+function hmS(h){const m=Math.round(h*60);return Math.floor(m/60)+':'+pad(m%60);}
+const clamp=v=>Math.max(0,Math.min(100,v));
+function letterOf(s){return s>=90?'A':s>=80?'B':s>=70?'C':s>=60?'D':s>=50?'E':'F';}
+function gradeClass(l){return /[AB]/.test(l)?'g-good':/[CD]/.test(l)?'g-mid':'g-low';}
+function sleepGrade(e,list){
+  const T=sleepTarget(),h=sleepHours(e);if(h==null)return null;
+  let dur=h>=T-0.5&&h<=T+1?100:h<T-0.5?100-(T-0.5-h)*25:100-(h-T-1)*15;dur=clamp(dur);
+  const felt=e.rested?(e.rested-1)/4*100:null;
+  const prev=list.filter(x=>x.id!==e.id&&x.date<e.date&&x.date>=addDays(e.date,-7)&&bedRel(x)!=null);
+  let con=null,dev=null;
+  if(prev.length>=2&&bedRel(e)!=null){const avg=prev.reduce((a,x)=>a+bedRel(x),0)/prev.length;dev=Math.abs(bedRel(e)-avg);con=clamp(100-Math.max(0,dev-30)*0.67);}
+  const parts=[
+    {k:'Duration',w:.5,v:dur,note:`${hm(h)}, target ${numTxt(T)} h`},
+    {k:'How rested',w:.3,v:felt,note:e.rested?RESTED[e.rested-1]:'Not rated'},
+    {k:'Regular bedtime',w:.2,v:con,note:dev!=null?(dev<=30?'Within half an hour of your usual bedtime':`${Math.round(dev)} min from your usual bedtime`):'Needs 2 earlier nights this week'}];
+  const used=parts.filter(p=>p.v!=null),W=used.reduce((a,p)=>a+p.w,0);
+  const score=Math.round(used.reduce((a,p)=>a+p.v*p.w,0)/W);
+  return {score,letter:letterOf(score),parts,h};
+}
+let sleepDraft=null,sleepEdit=null,pendingSleepDel=null,sleepComment=false;
+function sleepList(id){return S.sleep.filter(e=>e.tabId===id).sort((a,b)=>a.date<b.date?1:-1);}
+function newSleepDraft(id){const L=sleepList(id),last=L[0];return {tabId:id,date:today(),bed:last?last.bed:'23:00',wake:last?last.wake:'07:00',rested:0,comment:''};}
+function gradeBox(g){
+  if(!g)return `<div class="grade-box"><p class="hint" style="margin:0">Fill in when you went to bed and woke up to see the grade.</p></div>`;
+  return `<div class="grade-box"><div class="grade-badge big ${gradeClass(g.letter)}" aria-label="Grade ${g.letter}">${g.letter}</div>
+   <div class="grade-detail"><div class="grade-score"><strong class="mono">${g.score}</strong><span class="muted"> / 100 · ${hm(g.h)}</span></div>
+   ${g.parts.map(p=>`<div class="gpart"><span>${p.k}</span><div class="hbar"><i style="width:${p.v==null?0:p.v.toFixed(0)}%"></i></div><span class="mono">${p.v==null?'–':Math.round(p.v)}</span><small>${esc(p.note)}</small></div>`).join('')}</div></div>`;
+}
+function viewSleep(ctx){
+  const L=sleepList(ctx.id);
+  if(!sleepDraft||sleepDraft.tabId!==ctx.id){sleepDraft=newSleepDraft(ctx.id);sleepEdit=null;sleepComment=false;
+    const ex=L.find(e=>e.date===sleepDraft.date);if(ex){sleepDraft=Object.assign({},ex);sleepEdit=ex.id;}}
+  const d=sleepDraft,g=sleepGrade(d,L),T=sleepTarget();
+  const wk=L.filter(e=>e.date>addDays(today(),-7)),gs=wk.map(e=>sleepGrade(e,L)).filter(Boolean);
+  const avgH=gs.length?gs.reduce((a,x)=>a+x.h,0)/gs.length:null,avgS=gs.length?Math.round(gs.reduce((a,x)=>a+x.score,0)/gs.length):null;
+  let streak=0;for(let k=today();L.some(e=>e.date===k);k=addDays(k,-1))streak++;
+  if(!streak&&L.some(e=>e.date===addDays(today(),-1)))for(let k=addDays(today(),-1);L.some(e=>e.date===k);k=addDays(k,-1))streak++;
+  let h=headHtml(ctx,L.length?`${L.length} night${L.length>1?'s':''} logged`:'Log last night in a few taps',
+    `<label class="field" style="flex-direction:row;align-items:center;gap:8px"><span style="white-space:nowrap">Sleep target</span><select class="input" id="sl-target" data-sleeptarget="1" style="width:auto">${TARGETS.map(t=>`<option value="${t}" ${t===T?'selected':''}>${numTxt(t)} h</option>`).join('')}</select></label>`);
+  h+=`<form class="sleep-form" id="sleepForm" novalidate>
+   <div class="sleep-top"><div><div class="eyebrow">${sleepEdit?'Editing':'Last night'}</div><h3>Night before ${esc(fmt(d.date,{weekday:'long',day:'numeric',month:'short'}))}</h3></div>
+    <label class="field"><span>Woke up on</span><input type="date" class="input" id="sl-date" data-sl="date" value="${esc(d.date)}" max="${today()}"></label></div>
+   <div class="row2"><label class="field"><span>Went to bed</span><input type="time" class="input time" id="sl-bed" data-sl="bed" value="${esc(d.bed)}"></label>
+    <label class="field"><span>Woke up</span><input type="time" class="input time" id="sl-wake" data-sl="wake" value="${esc(d.wake)}"></label></div>
+   <div class="field"><span>How rested do you feel?</span><div class="moods">${RESTED.map((r,i)=>`<button type="button" class="mood" data-a="rested" data-v="${i+1}" aria-pressed="${d.rested===i+1}">${r}</button>`).join('')}</div></div>
+   <div id="slPreview">${gradeBox(g)}</div>
+   ${sleepComment||d.comment?`<label class="field"><span>Comment <span class="muted" style="font-weight:400">(optional)</span></span><textarea class="input" id="sl-comment" data-sl="comment" rows="2" style="min-height:64px" placeholder="Woke up at 3, too much coffee, late screen time…">${esc(d.comment)}</textarea></label>`
+     :`<div><button type="button" class="btn ghost small" data-a="sl-comment">${ICON.plus}Add a comment</button></div>`}
+   <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${sleepEdit&&sleepEdit!==(L.find(e=>e.date===today())||{}).id?'<button type="button" class="btn" data-a="sl-cancel">Cancel</button>':''}<button type="submit" class="btn primary">${sleepEdit?'Update night':'Save night'}</button></div>
+  </form>`;
+  h+=`<div class="tiles">
+   <div class="tile"><div class="n">${avgH!=null?hmS(avgH):'–'}</div><div class="l">Average sleep, last 7 nights</div></div>
+   <div class="tile"><div class="n">${avgS!=null?`${letterOf(avgS)} <small class="muted" style="font-size:15px">${avgS}</small>`:'–'}</div><div class="l">Average grade, last 7 nights</div></div>
+   <div class="tile"><div class="n">${streak}</div><div class="l">Nights in a row logged</div></div>
+   <div class="tile"><div class="n">${numTxt(T)} h</div><div class="l">Your target</div></div></div>`;
+  if(!L.length)return h+`<div class="empty"><h3>No nights logged yet</h3><p>Each morning, fill in when you went to bed and woke up. You get a grade from A to F based on how long you slept, how rested you feel and how regular your bedtime is.</p></div>`;
+  const nights=[];for(let i=13;i>=0;i--){const k=addDays(today(),-i),e=L.find(x=>x.date===k),gg=e?sleepGrade(e,L):null;nights.push({x:k,v:gg?Math.round(gg.h*100)/100:0,g:gg,short:String(parse(k).getDate()),label:fmtD(k),now:false});}
+  h+=`<section class="block"><h3>Last 14 nights</h3><div class="trend">${legend([{name:'Hours slept',color:'var(--accent)',rect:true},{name:`Target ${numTxt(T)} h`,color:'var(--ink)',dash:'5 4'}])}
+    ${barChart('ch-sleep',{label:'Hours slept, last 14 nights',bars:nights,seriesName:'Slept',ref:T,fmt:b=>b.g?`${hm(b.g.h)} · grade ${b.g.letter}`:'Not logged',colorOf:b=>b.g&&b.g.h<T-0.5?'var(--routine)':'var(--accent)'})}
+    <p class="hint">Amber bars are nights more than half an hour under your target.</p></div></section>`;
+  h+=`<section class="block"><h3>Nights</h3>`;
+  let lastM='';
+  L.forEach(e=>{
+    const m=fmt(e.date,{month:'long',year:'numeric'});if(m!==lastM){h+=`<div class="month">${esc(m)}</div>`;lastM=m;}
+    const gg=sleepGrade(e,L),dd=parse(e.date);
+    h+=`<div class="night"><div class="entry-date"><div class="dd">${dd.getDate()}</div><div class="wd">${dd.toLocaleDateString(undefined,{weekday:'short'})}</div></div>
+     <div style="min-width:0"><div class="night-main"><strong class="mono">${gg?hm(gg.h):'–'}</strong><span class="muted mono">${esc(e.bed||'?')} → ${esc(e.wake||'?')}</span>${e.rested?`<span class="chip">${RESTED[e.rested-1]}</span>`:''}${e.example?'<span class="chip ex">Example</span>':''}</div>
+      ${e.comment?`<p class="entry-text">${esc(e.comment)}</p>`:''}
+      <div class="entry-meta">${pendingSleepDel===e.id?`<span class="err">Delete this night?</span><button class="btn small danger solid" data-a="sl-del-yes" data-id="${e.id}">Delete</button><button class="btn small" data-a="sl-del-no">Keep</button>`
+        :`<button class="btn ghost small" data-a="sl-edit" data-id="${e.id}">${ICON.edit}Edit</button><button class="btn ghost small" data-a="sl-del" data-id="${e.id}">${ICON.trash}Delete</button>`}</div></div>
+     ${gg?`<div class="grade-badge ${gradeClass(gg.letter)}" title="Score ${gg.score} of 100">${gg.letter}</div>`:''}</div>`;
+  });
+  return h+'</section>';
+}
+function refreshSleepPreview(){const p=$('#slPreview');if(p&&sleepDraft)p.innerHTML=gradeBox(sleepGrade(sleepDraft,sleepList(sleepDraft.tabId)));}
+function trendSleep(){
+  const v=SV(),all=S.sleep.slice().sort((a,b)=>a.date<b.date?-1:1);
+  if(!all.length)return {ctrl:'',body:emptyChart('Log a night in the Sleep tab to see your sleep over time.')};
+  const m=['h','score','rested'].includes(v.sleepMetric)?v.sleepMetric:'h';
+  const ctrl=seg('sleepMetric',[['h','Hours'],['score','Grade score'],['rested','How rested']],m);
+  const [x0,x1]=bounds(all[0].date);
+  const T=sleepTarget();
+  const pts=all.map(e=>{const g=sleepGrade(e,all.filter(x=>x.tabId===e.tabId));if(!g)return null;return {x:e.date,y:m==='h'?g.h:m==='score'?g.score:(e.rested||null),g,e};}).filter(p=>p&&p.y!=null);
+  const inR=pts.filter(p=>p.x>=x0&&p.x<=x1);
+  const series=[{name:m==='h'?'Hours slept':m==='score'?'Grade score':'How rested',color:'var(--accent)',points:pts,breakGaps:3}];
+  if(m==='h')series.push({name:`Target ${numTxt(T)} h`,color:'var(--muted)',dash:'5 5',markers:false,points:[{x:x0,y:T},{x:x1,y:T}]});
+  const cfg=m==='h'?{yMin:0,yMax:Math.max(10,Math.ceil(Math.max(...pts.map(p=>p.y))+1)),fmtY:(y,p)=>p&&p.g?hm(y)+' · '+p.g.letter:numTxt(y)+' h'}
+    :m==='score'?{yMin:0,yMax:100,fmtY:(y,p)=>y+(p&&p.g?' · '+p.g.letter:'')}:{yMin:1,yMax:5,fmtY:y=>RESTED[Math.round(y)-1]};
+  cfg.yTicks=m==='rested'?RESTED.map((l,i)=>({v:i+1,l})):m==='score'?[0,50,60,70,80,90,100].map(v=>({v,l:v>=50?`${v} ${letterOf(v)}`:String(v)})):Array.from({length:cfg.yMax/2+1},(_,i)=>({v:i*2,l:i*2+' h'}));
+  const avg=inR.length?inR.reduce((a,p)=>a+p.y,0)/inR.length:null;
+  const sum=avg==null?'No nights logged in this range.':m==='h'?`Average <strong>${hm(avg)}</strong> over ${inR.length} night${inR.length>1?'s':''}. ${inR.filter(p=>p.y>=T-0.5).length} reached your target.`
+    :m==='score'?`Average grade <strong>${letterOf(avg)}</strong> (${Math.round(avg)}) over ${inR.length} night${inR.length>1?'s':''}.`:`You usually feel <strong>${RESTED[Math.round(avg)-1].toLowerCase()}</strong>.`;
+  const body=`<p class="trend-sum">${sum}</p>${series.length>1?legend(series):''}${lineChart('ch-sl',Object.assign({label:'Sleep over time',x0,x1,padL:m==='rested'?62:46,series},cfg))}
+    ${tableView(['Night','Bed','Woke','Slept','Rested','Grade'],inR.slice().reverse().map(p=>[fmt(p.x,{day:'numeric',month:'short',year:'numeric'}),p.e.bed||'–',p.e.wake||'–',hm(p.g.h),p.e.rested?RESTED[p.e.rested-1]:'–',p.g.letter+' '+p.g.score]))}`;
+  return {ctrl,body};
+}
+
 /* ---------- statistics ---------- */
 const RANGES=[['14','2 wks'],['30','1 mo'],['90','3 mo'],['182','6 mo'],['365','1 yr'],['all','All']];
-const CHART_KINDS=[['progress','Progress'],['performance','Performance'],['mood','Mood'],['activity','Activity']];
+const CHART_KINDS=[['progress','Progress'],['performance','Performance'],['mood','Mood'],['sleep','Sleep'],['activity','Activity']];
 const PART_COLOR={morning:'var(--s-morning)',day:'var(--s-day)',evening:'var(--s-evening)'};
 const PART_DASH={morning:'',day:'7 4',evening:'2 4'};
 const METRICS=[['w','Weight'],['r','Reps'],['v','Volume'],['s','Sets']];
@@ -938,18 +1092,19 @@ function lineChart(id,c){
 }
 function barChart(id,c){
   const W=chartW(),H=c.height||210,pl=30,pr=8,pt=14,pb=26,iw=W-pl-pr,ih=H-pt-pb,n=c.bars.length;
-  const max=niceMax(Math.max(1,...c.bars.map(b=>b.v))),bw=iw/n,sy=v=>pt+(1-v/max)*ih,base=pt+ih;
+  const max=niceMax(Math.max(1,c.ref||0,...c.bars.map(b=>b.v))),bw=iw/n,sy=v=>pt+(1-v/max)*ih,base=pt+ih;
   let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" tabindex="0" role="img" aria-label="${esc(c.label)}">`;
   [0,max/2,max].forEach(v=>{const y=sy(v).toFixed(1);s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)"${v?' stroke-dasharray="2 4"':''}/><text x="${pl-6}" y="${y}" dy="3.5" text-anchor="end">${Number.isInteger(v)?v:v.toFixed(1)}</text>`;});
   const every=Math.ceil(n/Math.max(2,Math.floor(iw/62)));
   c.bars.forEach((b,i)=>{
     const x=pl+i*bw+1,w=Math.max(2,bw-2),y=sy(b.v),r=Math.min(4,w/2,base-y);
-    if(b.v>0)s+=`<path d="M${x.toFixed(1)} ${base} V${(y+r).toFixed(1)} Q${x.toFixed(1)} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+w-r).toFixed(1)} Q${(x+w).toFixed(1)} ${y.toFixed(1)} ${(x+w).toFixed(1)} ${(y+r).toFixed(1)} V${base} Z" fill="${b.now?'var(--routine)':'var(--accent)'}"/>`;
+    if(b.v>0)s+=`<path d="M${x.toFixed(1)} ${base} V${(y+r).toFixed(1)} Q${x.toFixed(1)} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+w-r).toFixed(1)} Q${(x+w).toFixed(1)} ${y.toFixed(1)} ${(x+w).toFixed(1)} ${(y+r).toFixed(1)} V${base} Z" fill="${c.colorOf?c.colorOf(b):b.now?'var(--routine)':'var(--accent)'}"/>`;
     if(i%every===0)s+=`<text x="${(x+w/2).toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(b.short)}</text>`;
   });
+  if(c.ref)s+=`<line x1="${pl}" x2="${W-pr}" y1="${sy(c.ref).toFixed(1)}" y2="${sy(c.ref).toFixed(1)}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
   s+=`<line class="xh" x1="0" x2="0" y1="${pt}" y2="${base}" stroke="var(--ink)" stroke-width="1" style="display:none"/></svg>`;
   const xs=c.bars.map(b=>b.x),idx=Object.fromEntries(c.bars.map((b,i)=>[b.x,i]));
-  CH[id]={xs,sx:x=>pl+idx[x]*bw+bw/2,W,title:x=>c.bars[idx[x]].label,rows:x=>[{name:c.seriesName,color:'var(--accent)',val:String(c.bars[idx[x]].v)}]};
+  CH[id]={xs,sx:x=>pl+idx[x]*bw+bw/2,W,title:x=>c.bars[idx[x]].label,rows:x=>[{name:c.seriesName,color:'var(--accent)',val:c.fmt?c.fmt(c.bars[idx[x]]):String(c.bars[idx[x]].v)}]};
   return `<div class="chart" id="${id}">${s}<div class="tip" hidden></div></div>`;
 }
 function legend(items){return `<div class="legend-row">${items.map(i=>`<span class="lk"><svg viewBox="0 0 20 8" aria-hidden="true">${i.rect?`<rect x="4" y="0" width="12" height="8" rx="2" fill="${i.color}"/>`:i.line===false?`<circle cx="10" cy="4" r="3.5" fill="${i.color}"/>`:`<line x1="1" x2="19" y1="4" y2="4" stroke="${i.color}" stroke-width="2.5" stroke-linecap="round"${i.dash?` stroke-dasharray="${i.dash}"`:''}/>`}</svg>${esc(i.name)}</span>`).join('')}</div>`;}
@@ -1125,7 +1280,7 @@ function viewStats(){
   const sts=all.map(g=>({g,s:status(g),p:progress(g),e:expected(g)}));
   const t=today(),wk=addDays(t,-6);
   let week=0;all.forEach(g=>{if(g.kind==='routine')Object.entries(g.checks).forEach(([k,val])=>{const d=g.freq==='daily'?k:(typeof val==='string'?val:k);if(d>=wk&&d<=t)week++;});else g.milestones.forEach(m=>{if(m.done&&m.doneAt>=wk&&m.doneAt<=t)week++;});});
-  const tr=v.chart==='performance'?trendPerformance():v.chart==='mood'?trendMood():v.chart==='activity'?trendActivity():trendProgress();
+  const tr=v.chart==='sleep'?trendSleep():v.chart==='performance'?trendPerformance():v.chart==='mood'?trendMood():v.chart==='activity'?trendActivity():trendProgress();
   const ent=S.diary,monthKey=t.slice(0,7);
   let h=`<div class="head"><div><h2>Statistics</h2><p>Across ${gTabs.length} area${gTabs.length===1?'':'s'} and ${all.length} goal${all.length===1?'':'s'}</p></div></div>
   <div class="tiles">
@@ -1287,7 +1442,7 @@ function refreshCell(row,key){const b=document.querySelector(`[data-cell="${row.
 
 /* ---------- settings ---------- */
 function viewSettings(){
-  const exCount=S.goals.filter(g=>g.example).length+S.diary.filter(e=>e.example).length;
+  const exCount=S.goals.filter(g=>g.example).length+S.diary.filter(e=>e.example).length+S.sleep.filter(e=>e.example).length;
   const upd=new Date(S.updatedAt);
   return `<div class="head"><div><h2>Settings</h2><p>Arrange your areas, move data between devices, and manage what's stored here.</p></div></div>
   <section class="set-sec"><h3>App name</h3><p>Shown at the top of the app and in the browser tab. You can also tap the name at the top to change it.</p>
@@ -1306,7 +1461,7 @@ function viewSettings(){
       ${so?subsEditor(t):''}
      </li>`;}).join('')}</ul>
    <form class="add-tab" id="addTab" novalidate><input class="input" id="newTabName" placeholder="New tab name, e.g. Finance" maxlength="30" aria-label="New tab name">
-     <select class="input" id="newTabType" aria-label="Tab type"><option value="goals">Goals</option><option value="diary">Diary</option><option value="stats">Statistics</option></select>
+     <select class="input" id="newTabType" aria-label="Tab type"><option value="goals">Goals</option><option value="diary">Diary</option><option value="sleep">Sleep</option><option value="stats">Statistics</option></select>
      <button class="btn primary" type="submit">${ICON.plus}Add tab</button></form>
   </section>
 
@@ -1326,7 +1481,7 @@ function viewSettings(){
   </section>
 
   <section class="set-sec"><h3>Data on this device</h3>
-   <p>${S.goals.length} goals and ${S.diary.length} diary entries are stored in this browser${storageOk?'':' for this visit only'}.</p>
+   <p>${S.goals.length} goals, ${S.diary.length} diary entries and ${S.sleep.length} nights of sleep are stored in this browser${storageOk?'':' for this visit only'}.</p>
    <div style="display:flex;gap:8px;flex-wrap:wrap">
     ${exCount?`<button class="btn" data-a="clear-examples">Remove example goals and entries (${exCount})</button>`:''}
     ${pendingErase?`<span class="err" style="align-self:center">Erase every tab, goal and entry on this device?</span><button class="btn danger solid" data-a="erase-yes">Erase everything</button><button class="btn" data-a="erase-no">Keep</button>`:`<button class="btn danger" data-a="erase">${ICON.trash}Erase all data</button>`}
@@ -1336,7 +1491,7 @@ function viewSettings(){
 function subsEditor(t){
   return `<div class="subs-edit"><ul class="sub-list">${t.subs.map((s,j)=>{
     const key=t.id+'|'+s.id;
-    const n=S.goals.filter(g=>g.tabId===s.id).length+S.diary.filter(e=>e.tabId===s.id).length;
+    const n=S.goals.filter(g=>g.tabId===s.id).length+S.diary.filter(e=>e.tabId===s.id).length+S.sleep.filter(e=>e.tabId===s.id).length;
     return `<li class="sub-item"><input class="input" id="sn-${s.id}" data-subname="${key}" value="${esc(s.name)}" maxlength="30" aria-label="Sub-tab name">
      <span class="kind">${s.kind==='main'?KIND_LABEL[t.type]+' · main':SUB_LABEL[s.kind]}</span>
      <span class="acts"><button class="icon-btn" data-a="subtab-up" data-key="${key}" ${j===0?'disabled':''} aria-label="Move ${esc(s.name)} up">${ICON.up}</button>
@@ -1352,7 +1507,7 @@ function importPreviewHtml(){
   if(importMsg)return `<p class="err" role="alert">${esc(importMsg)}</p>`;
   if(!pendingImport)return'';
   const d=pendingImport,u=d.updatedAt?new Date(d.updatedAt):null,older=u&&new Date(S.updatedAt)>u;
-  return `<div class="preview ${older?'warn':''}"><div><strong>Code checked.</strong> It holds ${d.tabs.length} tabs, ${d.goals.length} goals and ${(d.diary||[]).length} diary entries${u?`, last changed ${esc(u.toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}`:''}.</div>
+  return `<div class="preview ${older?'warn':''}"><div><strong>Code checked.</strong> It holds ${d.tabs.length} tabs, ${d.goals.length} goals, ${(d.diary||[]).length} diary entries and ${(d.sleep||[]).length} nights of sleep${u?`, last changed ${esc(u.toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}`:''}.</div>
    ${older?'<div style="color:var(--warn);font-weight:600">This code is older than the data on this device. Loading it will replace the newer changes here.</div>':''}
    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-a="import-yes">Replace data on this device</button><button class="btn" data-a="import-no">Cancel</button></div></div>`;
 }
@@ -1394,8 +1549,7 @@ const A={
   'edit-goal'(el){const g=S.goals.find(x=>x.id===el.dataset.g);if(g)openGoal(g.tabId,g.id);},
   expand(el){const id=el.dataset.g;expanded.has(id)?expanded.delete(id):expanded.add(id);renderView();},
   ms(el){const g=S.goals.find(x=>x.id===el.dataset.g);if(!g)return;const m=g.milestones.find(x=>x.id===el.dataset.m);if(!m)return;
-    m.done=!m.done;m.doneAt=m.done?today():undefined;save();render();
-    if(m.done)toast(progress(g)>=1?`“${g.title}” complete`:`Milestone done · ${pctTxt(progress(g))}%`);},
+    m.done=!m.done;m.doneAt=m.done?today():undefined;const r=rebalance(g);save();render();msToast(g,m,r);},
   period(el){const g=S.goals.find(x=>x.id===el.dataset.g);if(!g)return;const k=el.dataset.k;
     if(g.checks[k])delete g.checks[k];else g.checks[k]=today();save();render();
     if(g.checks[k])toast(progress(g)>=1?`“${g.title}” complete`:`Checked in · ${pctTxt(progress(g))}%`);},
@@ -1425,7 +1579,7 @@ const A={
   'subtab-del'(el){pendingSubDel=el.dataset.key;renderView();},
   'subtab-del-no'(){pendingSubDel=null;renderView();},
   'subtab-del-yes'(el){const [tid,sid]=el.dataset.key.split('|');const t=S.tabs.find(x=>x.id===tid);if(!t)return;const s=t.subs.find(x=>x.id===sid);if(!s||s.kind==='main')return;
-    t.subs=t.subs.filter(x=>x.id!==sid);S.goals=S.goals.filter(g=>g.tabId!==sid);S.diary=S.diary.filter(e=>e.tabId!==sid);if(S.activeSub[tid]===sid)delete S.activeSub[tid];
+    t.subs=t.subs.filter(x=>x.id!==sid);S.goals=S.goals.filter(g=>g.tabId!==sid);S.diary=S.diary.filter(e=>e.tabId!==sid);S.sleep=S.sleep.filter(e=>e.tabId!==sid);if(S.activeSub[tid]===sid)delete S.activeSub[tid];
     pendingSubDel=null;save();render();toast(`Removed ${s.name}`);},
   'sheet-open'(el){openSheet(el.dataset.g,el.dataset.r||null,el.dataset.c||null);},
   'sheet-close'(){closeSheet();},
@@ -1445,8 +1599,8 @@ const A={
   'row-del-yes'(){const g=shGoal();g.sheet.rows=g.sheet.rows.filter(r=>r.id!==SH.sel.r);SH.sel=null;SH.confirm=null;save();renderSheet();toast('Row deleted');},
   'sh-confirm-no'(){SH.confirm=null;updateSel();},
   'col-done'(){const g=shGoal(),k=SH.sel.c;
-    if(g.kind==='milestones'){const m=g.milestones.find(x=>x.id===k);if(!m)return;m.done=!m.done;m.doneAt=m.done?today():undefined;}
-    else{if(g.checks[k])delete g.checks[k];else g.checks[k]=today();}
+    if(g.kind==='milestones'){const m=g.milestones.find(x=>x.id===k);if(!m)return;m.done=!m.done;m.doneAt=m.done?today():undefined;const r=rebalance(g);save();renderSheet();msToast(g,m,r);return;}
+    if(g.checks[k])delete g.checks[k];else g.checks[k]=today();
     save();renderSheet();toast(`${pctTxt(progress(g))}% of “${g.title}”`);},
   'col-fill'(){const g=shGoal(),cols=sheetCols(g),ci=cols.findIndex(c=>c.key===SH.sel.c);if(ci<1)return;const pk=cols[ci-1].key,k=cols[ci].key;let n=0;
     g.sheet.rows.forEach(r=>{if(!fmtCell(r.cells[k])&&r.cells[pk]&&fmtCell(r.cells[pk])){r.cells[k]=clone(r.cells[pk]);n++;}});
@@ -1458,6 +1612,13 @@ const A={
   'f-del-no'(){formConfirmDel=false;renderForm();},
   'f-del-yes'(){S.goals=S.goals.filter(g=>g.id!==draft.id);expanded.delete(draft.id);draft=null;save();renderForm();render();toast('Goal deleted');},
   part(el){diaryDraft.part=el.dataset.v;document.querySelectorAll('[data-a="part"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===diaryDraft.part)));},
+  rested(el){sleepDraft.rested=sleepDraft.rested===+el.dataset.v?0:+el.dataset.v;document.querySelectorAll('[data-a="rested"]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===sleepDraft.rested)));refreshSleepPreview();},
+  'sl-comment'(){sleepComment=true;renderView();const c=$('#sl-comment');if(c)c.focus();},
+  'sl-cancel'(){sleepDraft=null;renderView();},
+  'sl-edit'(el){const e=S.sleep.find(x=>x.id===el.dataset.id);if(!e)return;sleepDraft=Object.assign({},e);sleepEdit=e.id;sleepComment=!!e.comment;renderView();window.scrollTo({top:0,behavior:'smooth'});},
+  'sl-del'(el){pendingSleepDel=el.dataset.id;renderView();},
+  'sl-del-no'(){pendingSleepDel=null;renderView();},
+  'sl-del-yes'(el){S.sleep=S.sleep.filter(e=>e.id!==el.dataset.id);pendingSleepDel=null;if(sleepEdit===el.dataset.id)sleepDraft=null;save();render();toast('Night deleted');},
   sv(el){SV()[el.dataset.k]=el.dataset.v;saveUi();renderView();},
   'sub-edit'(el){editingSubs=editingSubs===el.dataset.top?null:el.dataset.top;addingSub=null;pendingSubDel=null;renderView();},
   mood(el){const v=+el.dataset.v;diaryDraft.mood=diaryDraft.mood===v?0:v;document.querySelectorAll('.mood').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===diaryDraft.mood)));},
@@ -1471,7 +1632,7 @@ const A={
   'tab-del'(el){pendingTabDel=el.dataset.id;renderView();},
   'tab-del-no'(){pendingTabDel=null;renderView();},
   'tab-del-yes'(el){const id=el.dataset.id;const t=S.tabs.find(x=>x.id===id);const ids=new Set([id].concat(t?t.subs.map(s=>s.id):[]));
-    S.tabs=S.tabs.filter(x=>x.id!==id);S.goals=S.goals.filter(g=>!ids.has(g.tabId));S.diary=S.diary.filter(e=>!ids.has(e.tabId));delete S.activeSub[id];pendingTabDel=null;save();render();toast(`Removed ${t?t.name:'tab'}`);},
+    S.tabs=S.tabs.filter(x=>x.id!==id);S.goals=S.goals.filter(g=>!ids.has(g.tabId));S.diary=S.diary.filter(e=>!ids.has(e.tabId));S.sleep=S.sleep.filter(e=>!ids.has(e.tabId));delete S.activeSub[id];pendingTabDel=null;save();render();toast(`Removed ${t?t.name:'tab'}`);},
   theme(el){S.settings.theme=el.dataset.v;applyTheme();save();renderView();},
   'copy-code'(){const ta=$('#exportCode');const code=exportCache;if(!code){toast('The code is still being prepared');return;}
     const sel=()=>{ta.focus();ta.select();ta.setSelectionRange(0,code.length);toast('Code selected. Copy it with your device\'s copy command.');};
@@ -1481,10 +1642,10 @@ const A={
     decode(v).then(d=>{pendingImport=d;}).catch(e=>{importMsg=e.message;}).then(()=>{const p=$('#importPreview');if(p)p.innerHTML=importPreviewHtml();});},
   'import-no'(){pendingImport=null;$('#importPreview').innerHTML='';},
   'import-yes'(){S=normalize(pendingImport);S.active='settings';pendingImport=null;importMsg='';expanded.clear();diaryDraft=null;diaryEdit=null;applyTheme();save();render();const ic=$('#importCode');if(ic)ic.value='';toast('Loaded. This device now matches the code.');},
-  'clear-examples'(){S.goals=S.goals.filter(g=>!g.example);S.diary=S.diary.filter(e=>!e.example);save();render();toast('Examples removed');},
+  'clear-examples'(){S.goals=S.goals.filter(g=>!g.example);S.diary=S.diary.filter(e=>!e.example);S.sleep=S.sleep.filter(e=>!e.example);sleepDraft=null;save();render();toast('Examples removed');},
   erase(){pendingErase=true;renderView();},
   'erase-no'(){pendingErase=false;renderView();},
-  'erase-yes'(){const tabs=seed().tabs;S={v:3,tabs,active:'settings',activeSub:{},settings:S.settings,goals:[],diary:[],updatedAt:''};pendingErase=false;expanded.clear();save();render();toast('All data erased');}
+  'erase-yes'(){const tabs=seed().tabs;S={v:4,tabs,active:'settings',activeSub:{},settings:S.settings,goals:[],diary:[],sleep:[],updatedAt:''};sleepDraft=null;pendingErase=false;expanded.clear();save();render();toast('All data erased');}
 };
 function moveSub(key,dir){const [tid,sid]=key.split('|');const t=S.tabs.find(x=>x.id===tid);if(!t)return;const i=t.subs.findIndex(s=>s.id===sid),j=i+dir;
   if(i<0||j<0||j>=t.subs.length)return;[t.subs[i],t.subs[j]]=[t.subs[j],t.subs[i]];pendingSubDel=null;save();renderView();
@@ -1499,6 +1660,7 @@ document.addEventListener('input',e=>{
   if(draft&&t.dataset.df){draft[t.dataset.df]=t.value;if(t.dataset.df!=='title'&&t.dataset.df!=='notes'){const p=$('#f-prev');if(p)p.textContent=routinePreview();}}
   else if(draft&&t.dataset.mf){draft.milestones[+t.dataset.mi][t.dataset.mf]=t.value;}
   else if(diaryDraft&&t.dataset.dd){diaryDraft[t.dataset.dd]=t.value;}
+  else if(sleepDraft&&t.dataset.sl){sleepDraft[t.dataset.sl]=t.value;if(t.dataset.sl!=='comment')refreshSleepPreview();}
   else if(t.dataset.notes){const [tid,sid]=t.dataset.notes.split('|');const tb=S.tabs.find(x=>x.id===tid);const s=tb&&tb.subs.find(x=>x.id===sid);if(s){s.text=t.value;save();}}
   else if(t.dataset.fb&&SH){const x=cellRef();if(!x)return;const c=Object.assign({s:'',r:'',w:''},x.row.cells[x.key]);c[t.dataset.fb]=parseNum(t.value);
     if(c.s===''&&c.r===''&&c.w==='')delete x.row.cells[x.key];else x.row.cells[x.key]=c;save();refreshCell(x.row,x.key);}
@@ -1511,6 +1673,12 @@ document.addEventListener('focusin',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.appname){if(t.value.trim()!==appName()){setAppName(t.value);toast('Name saved');}else t.value=appName();}
+  if(draft&&t.dataset.dfcheck){draft[t.dataset.dfcheck]=t.checked;return;}
+  if(t.dataset.sleeptarget){S.settings.sleepTarget=+t.value;save();renderView();return;}
+  if(t.dataset.sl==='date'&&sleepDraft&&validDate(t.value)){const ex=S.sleep.find(e=>e.tabId===sleepDraft.tabId&&e.date===t.value);
+    if(ex&&ex.id!==sleepEdit){sleepDraft=Object.assign({},ex);sleepEdit=ex.id;sleepComment=!!ex.comment;renderView();toast('You already logged that night. Editing it.');return;}
+    if(!ex&&sleepEdit){sleepEdit=null;delete sleepDraft.id;delete sleepDraft.example;renderView();return;}
+    renderView();return;}
   if(t.dataset.sv){SV()[t.dataset.sv]=t.value;if(t.dataset.sv==='perfGoal')SV().perfRow='';saveUi();renderView();return;}
   if(t.dataset.subname){const [tid,sid]=t.dataset.subname.split('|');const tb=S.tabs.find(x=>x.id===tid);const s=tb&&tb.subs.find(x=>x.id===sid);const v=t.value.trim();
     if(s&&v&&v!==s.name){s.name=v.slice(0,30);save();toast('Sub-tab renamed');}else if(s)t.value=s.name;}
@@ -1524,6 +1692,12 @@ document.addEventListener('submit',e=>{
     const n=(f.querySelector('[name=n]').value.trim()||SUB_LABEL[k]).slice(0,30);const s={id:uid(),kind:k,name:n};t.subs.push(s);
     if(f.dataset.from==='strip'){S.active=t.id;S.activeSub[t.id]=s.id;addingSub=null;}
     save();render();toast(`Added ${n}`);return;}
+  if(f.id==='sleepForm'){const d=sleepDraft;if(tMin(d.bed)==null||tMin(d.wake)==null){toast('Fill in both bedtime and wake-up time');return;}
+    if(!validDate(d.date))d.date=today();
+    const rec={tabId:d.tabId,date:d.date,bed:d.bed,wake:d.wake,rested:d.rested||0,comment:(d.comment||'').trim()};
+    const ex=sleepEdit?S.sleep.find(e=>e.id===sleepEdit):S.sleep.find(e=>e.tabId===d.tabId&&e.date===d.date);
+    if(ex){Object.assign(ex,rec);delete ex.example;}else S.sleep.push(Object.assign({id:uid()},rec));
+    const g=sleepGrade(rec,sleepList(d.tabId));sleepDraft=null;save();render();toast(`Saved · grade ${g?g.letter:'–'}`);return;}
   if(f.id==='goalForm')submitGoal();
   else if(f.id==='addTab'){const n=$('#newTabName').value.trim();const ty=$('#newTabType').value;if(!n){$('#newTabName').focus();toast('Type a name for the new tab');return;}
     const t={id:uid(),name:n.slice(0,30),type:ty,subs:[{id:uid(),kind:'main',name:MAIN_NAME[ty]}]};S.tabs.push(t);save();render();toast(`Added ${t.name}`);}
